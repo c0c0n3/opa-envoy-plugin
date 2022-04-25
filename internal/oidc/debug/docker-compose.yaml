@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+
+  envoy:
+    image: envoyproxy/envoy:v1.19.3
+    ports:
+      - "8000:8000"
+    networks:
+      - simtests
+    volumes:
+      - type: bind
+        source: ./envoy-config.yaml
+        target: /etc/envoy/envoy.yaml
+
+networks:
+  simtests:
+    driver: bridge
