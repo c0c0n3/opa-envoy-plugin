@@ -33,7 +33,9 @@ static_resources:
               grpc_service:
                 envoy_grpc:
                   cluster_name: ext_authz-grpc-service
-                timeout: 0.250s
+                # Give requests more than a day to complete. Stops the go
+                # context timing out when debugging the service.
+                timeout: 100000.250s
               transport_api_version: V3
           - name: envoy.filters.http.router
             typed_config:
@@ -69,5 +71,4 @@ static_resources:
                 # Connect to the server process running on local host,
                 # outside of Docker.
                 address: host.docker.internal
-                # address: ext_authz-grpc-service
                 port_value: 9191
