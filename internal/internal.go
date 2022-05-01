@@ -106,6 +106,10 @@ func Validate(m *plugins.Manager, bs []byte) (*Config, error) {
 		cfg.protoSet = ps
 	}
 
+	if err := oidc.ValidateConfig(cfg.OIDCConfig); err != nil {
+		return nil, err
+	}
+
 	return &cfg, nil
 }
 
@@ -121,6 +125,7 @@ func New(m *plugins.Manager, cfg *Config) plugins.Plugin {
 		),
 		preparedQueryDoOnce:    new(sync.Once),
 		interQueryBuiltinCache: iCache.NewInterQueryCache(m.InterQueryBuiltinCacheConfig()),
+		oidcTrigger:            oidc.NewTrigger(cfg.OIDCConfig, m.Logger()),
 	}
 
 	// Register Authorization Server
@@ -149,8 +154,9 @@ type Config struct {
 	parsedQuery        ast.Body
 	ProtoDescriptor    string `json:"proto-descriptor"`
 	protoSet           *protoregistry.Files
-	GRPCMaxRecvMsgSize int `json:"grpc-max-recv-msg-size"`
-	GRPCMaxSendMsgSize int `json:"grpc-max-send-msg-size"`
+	GRPCMaxRecvMsgSize int          `json:"grpc-max-recv-msg-size"`
+	GRPCMaxSendMsgSize int          `json:"grpc-max-send-msg-size"`
+	OIDCConfig         *oidc.Config `json:"oidc-config"`
 }
 
 type envoyExtAuthzGrpcServer struct {
@@ -160,6 +166,7 @@ type envoyExtAuthzGrpcServer struct {
 	preparedQuery          *rego.PreparedEvalQuery
 	preparedQueryDoOnce    *sync.Once
 	interQueryBuiltinCache iCache.InterQueryCache
+	oidcTrigger            oidc.Trigger
 }
 
 type envoyExtAuthzV2Wrapper struct {
@@ -401,9 +408,7 @@ func (p *envoyExtAuthzGrpcServer) check(ctx context.Context, req interface{}) (*
 				Status:  httpStatus,
 			}
 
-			configFilePath := "TODO" // TODO p.cfg.configFilePath
-			oidcTrigger := oidc.NewTrigger(configFilePath, result, deniedResponse)
-			if oidcResponse := oidcTrigger.Process(); oidcResponse != nil {
+			if oidcResponse := p.oidcTrigger.Process(result, deniedResponse); oidcResponse != nil {
 				deniedResponse = oidcResponse
 			}
 

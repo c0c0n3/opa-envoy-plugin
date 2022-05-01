@@ -9,37 +9,40 @@ import (
 	pb "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/open-policy-agent/opa-envoy-plugin/envoyauth"
+	"github.com/open-policy-agent/opa/logging"
 )
 
 type Trigger interface {
-	Process() *ext_authz_v3.DeniedHttpResponse
+	Process(
+		result *envoyauth.EvalResult,
+		response *ext_authz_v3.DeniedHttpResponse) *ext_authz_v3.DeniedHttpResponse
 }
 
 type authCodeFlow struct {
-	configFilePath string
-	result         *envoyauth.EvalResult
-	response       *ext_authz_v3.DeniedHttpResponse
+	cfg ConfigReader
+	log logging.Logger
 }
 
-func NewTrigger(configFilePath string, result *envoyauth.EvalResult,
-	response *ext_authz_v3.DeniedHttpResponse) Trigger {
+func NewTrigger(cfg *Config, log logging.Logger) Trigger {
 	return &authCodeFlow{
-		configFilePath: configFilePath,
-		result:         result,
-		response:       response,
+		cfg: NewConfigReader(cfg),
+		log: log,
 	}
 }
 
-func (acf *authCodeFlow) Process() *ext_authz_v3.DeniedHttpResponse {
-	trigger, realm := shouldTriggerAuthCodeFlow(acf.result)
+func (acf *authCodeFlow) Process(
+	result *envoyauth.EvalResult,
+	response *ext_authz_v3.DeniedHttpResponse) *ext_authz_v3.DeniedHttpResponse {
+	trigger, realm := shouldTriggerAuthCodeFlow(result)
 	if trigger {
-		response := acf.response
-		location := redirectHeader(realm, acf.configFilePath)
-
-		response.Headers = append(response.Headers, location)
-		response.Status = redirectStatus()
-
-		return response
+		if err := acf.buildResponse(response, realm); err != nil {
+			acf.log.WithFields(map[string]interface{}{
+				"error":    err,
+				"realm":    realm,
+				"response": response,
+			}).Error("Failed to trigger OIDC Authorization Code flow.")
+		}
+		return response // unchanged if buildResponse error
 	}
 	return nil
 }
@@ -62,23 +65,39 @@ func extractRealm(result *envoyauth.EvalResult) string {
 	return ""
 }
 
+func (acf *authCodeFlow) buildResponse(response *ext_authz_v3.DeniedHttpResponse, realm string) error {
+	redirectUrl, err := acf.buildRedirectUrl(realm)
+	if err != nil {
+		return err
+	}
+
+	location := redirectHeader(redirectUrl)
+	response.Headers = append(response.Headers, location)
+	response.Status = redirectStatus()
+
+	return nil
+}
+
 func redirectStatus() *ext_type_v3.HttpStatus {
 	return &ext_type_v3.HttpStatus{
 		Code: ext_type_v3.StatusCode(ext_type_v3.StatusCode_SeeOther),
 	}
 }
 
-// TODO move to struct to get rid of cfgFilePath param
-func redirectHeader(realm string, cfgFilePath string) *ext_core_v3.HeaderValueOption {
+func redirectHeader(url string) *ext_core_v3.HeaderValueOption {
 	return &ext_core_v3.HeaderValueOption{
 		Header: &ext_core_v3.HeaderValue{
 			Key:   "Location",
-			Value: buildRedirectUrl(realm, cfgFilePath),
+			Value: url,
 		},
 		Append: pb.Bool(false),
 	}
 }
 
-func buildRedirectUrl(realm string, cfgFilePath string) string {
-	return "https://google.com/" // TODO
+func (acf *authCodeFlow) buildRedirectUrl(realm string) (string, error) {
+	if realmConfig := acf.cfg.LookupRealm(realm); realmConfig != nil {
+		return "https://google.com/", nil // TODO
+	}
+	return "https://google.com/", nil
+	// TODO err: want login redirect, but no tenant cfg!
 }
