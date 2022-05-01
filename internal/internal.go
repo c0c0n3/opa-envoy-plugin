@@ -39,6 +39,7 @@ import (
 	"github.com/open-policy-agent/opa/util"
 
 	"github.com/open-policy-agent/opa-envoy-plugin/envoyauth"
+	"github.com/open-policy-agent/opa-envoy-plugin/internal/oidc"
 	internal_util "github.com/open-policy-agent/opa-envoy-plugin/internal/util"
 	"github.com/open-policy-agent/opa-envoy-plugin/opa/decisionlog"
 )
@@ -398,6 +399,12 @@ func (p *envoyExtAuthzGrpcServer) check(ctx context.Context, req interface{}) (*
 				Headers: responseHeaders,
 				Body:    body,
 				Status:  httpStatus,
+			}
+
+			configFilePath := "TODO" // TODO p.cfg.configFilePath
+			oidcTrigger := oidc.NewTrigger(configFilePath, result, deniedResponse)
+			if oidcResponse := oidcTrigger.Process(); oidcResponse != nil {
+				deniedResponse = oidcResponse
 			}
 
 			resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{
