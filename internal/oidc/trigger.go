@@ -67,12 +67,12 @@ func extractRealm(result *envoyauth.EvalResult) string {
 }
 
 func (acf *authCodeFlow) buildResponse(response *ext_authz_v3.DeniedHttpResponse, realm string) error {
-	redirectUrl, err := acf.buildRedirectUrl(realm)
+	redirectURL, err := acf.buildRedirectURL(realm)
 	if err != nil {
 		return err
 	}
 
-	location := redirectHeader(redirectUrl)
+	location := redirectHeader(redirectURL)
 	response.Headers = append(response.Headers, location)
 	response.Status = redirectStatus()
 
@@ -95,7 +95,7 @@ func redirectHeader(url string) *ext_core_v3.HeaderValueOption {
 	}
 }
 
-func (acf *authCodeFlow) buildRedirectUrl(realm string) (string, error) {
+func (acf *authCodeFlow) buildRedirectURL(realm string) (string, error) {
 	if realmConfig := acf.cfg.LookupRealm(realm); realmConfig != nil {
 		return realmConfig.LoginURL, nil // TODO
 	}
