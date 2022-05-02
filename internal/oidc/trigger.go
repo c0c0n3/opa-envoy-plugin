@@ -97,7 +97,7 @@ func redirectHeader(url string) *ext_core_v3.HeaderValueOption {
 
 func (acf *authCodeFlow) buildRedirectUrl(realm string) (string, error) {
 	if realmConfig := acf.cfg.LookupRealm(realm); realmConfig != nil {
-		return realmConfig.LoginUrl, nil // TODO
+		return realmConfig.LoginURL, nil // TODO
 	}
 	return "", RealmLookupError(realm)
 }
