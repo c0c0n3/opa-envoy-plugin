@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"fmt"
 	"strings"
 
 	ext_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -96,8 +97,14 @@ func redirectHeader(url string) *ext_core_v3.HeaderValueOption {
 
 func (acf *authCodeFlow) buildRedirectUrl(realm string) (string, error) {
 	if realmConfig := acf.cfg.LookupRealm(realm); realmConfig != nil {
-		return "https://google.com/", nil // TODO
+		return realmConfig.LoginUrl, nil // TODO
 	}
-	return "https://google.com/", nil
-	// TODO err: want login redirect, but no tenant cfg!
+	return "", RealmLookupError(realm)
+}
+
+func RealmLookupError(realm string) error {
+	msg := "policy wants to redirect downstream client to realm login " +
+		"but no realm login endpoint found in configuration for realm " +
+		"name: '%s'"
+	return fmt.Errorf(msg, realm)
 }

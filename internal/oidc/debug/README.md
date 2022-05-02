@@ -59,8 +59,8 @@ Here's the VS Code debug config I'm using
             "args": [
                 "run",
                 "--server",
-                "--set=plugins.envoy_ext_authz_grpc.addr=:9191",
-                "--set=decision_logs.console=true",
+                "--config-file",
+                "internal/oidc/debug/opa-config.yaml",
                 "--log-format=json-pretty",
                 "internal/oidc/debug/policy/"
             ],
